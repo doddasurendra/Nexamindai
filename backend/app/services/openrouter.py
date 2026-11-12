@@ -12,6 +12,7 @@ import httpx
 
 from ..config import get_settings
 from ..errors import IntegrationNotConfigured, ProviderError
+from . import ollama as _ollama
 
 settings = get_settings()
 
@@ -215,7 +216,25 @@ async def chat(
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             continue
-    raise ProviderError("OpenRouter", f"All model attempts failed: {last_error}")
+
+    # All remote models failed — fall back to local Ollama (unlimited, no rate limits)
+    try:
+        trimmed = trim_messages(messages)
+        result = await _ollama.chat(trimmed, model=settings.ollama_model, temperature=temperature, max_tokens=max_tokens)
+        return {
+            "text": result["text"],
+            "model": f"ollama/{result['model']}",
+            "tokens_in": result.get("tokens_in", 0),
+            "tokens_out": result.get("tokens_out", 0),
+            "cost": 0.0,
+            "latency_ms": result.get("latency_ms", 0),
+            "raw": {"provider": "ollama", "fallback": True},
+        }
+    except Exception as ollama_exc:  # noqa: BLE001
+        raise ProviderError(
+            "OpenRouter",
+            f"All model attempts failed (remote: {last_error}; local Ollama fallback: {ollama_exc})",
+        )
 
 
 async def chat_stream(
@@ -284,7 +303,24 @@ async def chat_stream(
                 yield {"type": "error", "error": f"Stream interrupted: {exc}"}
                 return
             continue
-    yield {"type": "error", "error": f"All model attempts failed: {last_error}"}
+
+    # All remote models failed — fall back to local Ollama (unlimited, no rate limits)
+    try:
+        trimmed = trim_messages(messages)
+        result = await _ollama.chat(trimmed, model=settings.ollama_model, temperature=temperature, max_tokens=max_tokens)
+        text = result.get("text", "")
+        if text:
+            yield {"type": "delta", "text": text}
+        yield {
+            "type": "done",
+            "model": f"ollama/{result.get('model', settings.ollama_model)}",
+            "tokens_in": result.get("tokens_in", 0),
+            "tokens_out": result.get("tokens_out", 0),
+            "cost": 0.0,
+            "latency_ms": result.get("latency_ms", 0),
+        }
+    except Exception as ollama_exc:  # noqa: BLE001
+        yield {"type": "error", "error": f"All model attempts failed (remote: {last_error}; local Ollama fallback: {ollama_exc})"}
 
 
 async def embeddings(texts: list[str], model: str | None = None) -> list[list[float]]:

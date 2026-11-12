@@ -44,6 +44,28 @@ async def list_models() -> list[dict[str, Any]]:
     return response.json().get("models", [])
 
 
+async def chat(messages: list[dict[str, Any]], model: str | None = None, temperature: float = 0.7, max_tokens: int = 1024) -> dict[str, Any]:
+    """Chat completion via local Ollama (OpenAI-style messages)."""
+    if not _configured():
+        raise IntegrationNotConfigured("Ollama", "OLLAMA_BASE_URL")
+    chosen = model or settings.ollama_model
+    async with httpx.AsyncClient(timeout=180) as client:
+        response = await client.post(
+            f"{_base_url()}/api/chat",
+            json={
+                "model": chosen,
+                "messages": messages,
+                "stream": False,
+                "options": {"temperature": temperature, "num_predict": max_tokens},
+            },
+        )
+    if response.status_code >= 400:
+        raise ProviderError("Ollama", f"Chat failed: HTTP {response.status_code} {response.text[:300]}")
+    data = response.json()
+    content = (data.get("message") or {}).get("content", "")
+    return {"text": content, "model": chosen, "tokens_in": data.get("prompt_eval_count", 0), "tokens_out": data.get("eval_count", 0), "cost": 0.0, "latency_ms": 0}
+
+
 async def generate(prompt: str, model: str | None = None, max_tokens: int = 256) -> dict[str, Any]:
     if not _configured():
         raise IntegrationNotConfigured("Ollama", "OLLAMA_BASE_URL")
