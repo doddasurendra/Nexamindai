@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     video_generation_provider: str = "replicate"
     replicate_api_token: str = ""
     video_model: str = "minimax/video-01"
+    # Video API providers from the public-apis catalogue (https://github.com/public-apis/public-apis#video)
+    video_provider: str = "auto"  # auto | replicate | kpainter | json2video | shotstack
+    kpainter_api_key: str = ""  # prompt-to-video generation (https://api.kpainter.ai)
+    json2video_api_key: str = ""  # programmatic movie creation (https://api.json2video.com)
+    shotstack_api_key: str = ""  # cloud video editing/render (https://shotstack.io)
 
     # Storage
     storage_dir: Path = Path("./data/storage")

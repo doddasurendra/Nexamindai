@@ -14,6 +14,8 @@ export default function VideoPage() {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"voiceover" | "silent">("voiceover");
+  const [provider, setProvider] = useState("auto");
+  const [providers, setProviders] = useState<{ provider: string; configured: boolean; env: string; role: string }[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [editing, setEditing] = useState<MediaItem | null>(null);
@@ -30,6 +32,10 @@ export default function VideoPage() {
     api
       .get<MediaItem[]>("/api/media?kind=video")
       .then(setItems)
+      .catch(() => undefined);
+    api
+      .get<{ provider: string; configured: boolean; env: string; role: string }[]>("/api/videos/providers")
+      .then(setProviders)
       .catch(() => undefined);
   }, []);
 
@@ -52,6 +58,7 @@ export default function VideoPage() {
         prompt: prompt.trim(),
         duration_seconds: duration,
         language,
+        provider,
       });
       setItems((current) => [item, ...current]);
     } catch (err) {
@@ -125,7 +132,7 @@ export default function VideoPage() {
         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider muted">Video topic / prompt</label>
         <Input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the video… (e.g. 'quantum computing explained for beginners')" />
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="block">
             <span className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider muted"><Clock className="h-3 w-3" /> Duration</span>
             <Select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
@@ -152,6 +159,17 @@ export default function VideoPage() {
               <option value="silent">Silent clip only (fast)</option>
             </Select>
           </label>
+          <label className="block">
+            <span className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider muted"><Video className="h-3 w-3" /> Provider</span>
+            <Select value={provider} onChange={(event) => setProvider(event.target.value)}>
+              <option value="auto">Auto (try all configured)</option>
+              {providers.map((p) => (
+                <option key={p.provider} value={p.provider}>
+                  {p.provider} {p.configured ? "✓ ready" : "(not configured)"}
+                </option>
+              ))}
+            </Select>
+          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -166,7 +184,7 @@ export default function VideoPage() {
           </span>
         </div>
         <p className="muted mt-2 text-[11px]">
-          Requires REPLICATE_API_TOKEN (billing required — free tier reached) and OPENROUTER_API_KEY (or local Ollama). Long videos = far more predictions, credits and time. Video editing (trim/resize/overlay/combine) works offline with no API credits.
+          Providers from the public-apis catalogue: <strong>KPainter</strong> (prompt-to-video, key from api.kpainter.ai), <strong>JSON2Video</strong> (scene→MP4, key from json2video.com), <strong>Shotstack</strong> (10 free credits/30 days, key from shotstack.io), plus <strong>Replicate</strong> (billing required). Set the matching <code className="rounded bg-black/20 px-1">*_API_KEY</code> in backend/.env. Video editing works offline with no API credits.
         </p>
         {Boolean(error) && <div className="mt-4"><ErrorNotice error={error} /></div>}
       </Card>

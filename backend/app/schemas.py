@@ -262,6 +262,7 @@ class VideoGenerateRequest(BaseModel):
     duration_seconds: int = Field(default=30, ge=6, le=3600)
     language: str = Field(default="English", max_length=40)
     voice_id: str | None = Field(default=None, max_length=120)
+    provider: str = Field(default="auto", max_length=20)
 
 
 class CropParams(BaseModel):

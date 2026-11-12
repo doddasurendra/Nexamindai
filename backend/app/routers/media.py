@@ -15,7 +15,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import MediaItem, User
 from ..schemas import ImageGenerateRequest, ImageQuestion, MediaOut, VideoConcatRequest, VideoEditRequest, VideoGenerateRequest
-from ..services import imagegen, openrouter, videogen, video_pipeline, video_editor
+from ..services import imagegen, openrouter, videogen, video_pipeline, video_editor, video_providers
 from ..services.media import delete_file, kind_for_extension, save_upload
 from ..services.usage import record_usage
 
@@ -166,7 +166,10 @@ async def generate_video(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> MediaOut:
-    result = await videogen.generate_video(user.id, payload.prompt, payload.model or None)
+    provider = (payload.provider or "auto").lower()
+    result = await video_providers.generate_with_provider(
+        user.id, payload.prompt, provider, payload.duration_seconds, payload.language
+    )
     item = MediaItem(
         user_id=user.id,
         kind="video",
@@ -175,7 +178,13 @@ async def generate_video(
         mime_type="video/mp4",
         size=result["bytes"],
         source="generated",
-        meta={"model": result["model"], "prompt": payload.prompt, "prediction_id": result.get("prediction_id")},
+        meta={
+            "provider": result.get("provider", provider),
+            "model": result.get("model", ""),
+            "prompt": payload.prompt,
+            "duration_seconds": result.get("duration_seconds"),
+            "prediction_id": result.get("prediction_id") or result.get("creation_id") or result.get("project") or result.get("render_id"),
+        },
     )
     db.add(item)
     await db.commit()
@@ -302,3 +311,9 @@ async def concatenate_videos(
     await db.commit()
     await db.refresh(item)
     return MediaOut.model_validate(item)
+
+
+@router.get("/videos/providers")
+async def list_video_providers(user: User = Depends(get_current_user)) -> list[dict]:
+    """List video API providers from the public-apis catalogue and their configuration status."""
+    return video_providers.provider_status()
