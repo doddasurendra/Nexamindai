@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.so
+*.pyc
+.env
+.env.*
+!.env.example
+.python-version
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Data / runtime artifacts
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+npm-debug.log*
+.pnp
+.pnp.js
+.turbo/
+*.tsbuildinfo
+.next/
+dist/
+%~dp0.npm-cache/
+*.npm-cache/
+**/*npm-cache*/
+.npm-cache/
+
+# local secrets
+.env
+.env.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

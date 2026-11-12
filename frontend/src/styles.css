@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 248 250 255;
+  --surface: 255 255 255;
+  --surface-2: 244 247 253;
+  --text: 18 24 40;
+  --muted: 92 103 130;
+  --border: 219 226 240;
+  --ring: 51 130 255;
+}
+
+.dark {
+  --bg: 9 13 24;
+  --surface: 15 21 37;
+  --surface-2: 20 27 46;
+  --text: 232 237 249;
+  --muted: 148 160 188;
+  --border: 40 50 76;
+  --ring: 89 164 255;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  @apply antialiased;
+  background:
+    radial-gradient(1100px 600px at 85% -10%, rgba(51,130,255,.16), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(19,185,150,.12), transparent 55%),
+    rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+::selection { background: rgba(51,130,255,.35); }
+
+* { scrollbar-width: thin; scrollbar-color: rgba(120,135,170,.35) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(120,135,170,.35); border-radius: 999px; }
+
+.surface { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
+.surface-2 { background: rgb(var(--surface-2)); }
+.muted { color: rgb(var(--muted)); }
+.border-soft { border-color: rgb(var(--border)); }
+
+.glass {
+  background: color-mix(in srgb, rgb(var(--surface)) 82%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.nexa-card {
+  @apply rounded-2xl border border-soft surface shadow-card;
+}
+
+.nexa-input {
+  @apply w-full rounded-xl border border-soft surface-2 px-3.5 py-2.5 text-sm outline-none transition;
+  color: rgb(var(--text));
+}
+.nexa-input::placeholder { color: rgb(var(--muted)); }
+.nexa-input:focus { box-shadow: 0 0 0 3px rgba(var(--ring), .18); border-color: rgb(var(--ring)); }
+
+.nexa-btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.985] disabled:cursor-not-allowed disabled:opacity-50;
+}
+.nexa-btn-primary {
+  @apply nexa-btn text-white;
+  background: linear-gradient(135deg, #3382ff, #1b63f5 55%, #13b996);
+  box-shadow: 0 10px 30px -12px rgba(51,130,255,.8);
+}
+.nexa-btn-ghost { @apply nexa-btn border border-soft surface-2 hover:border-accent-400/60; }
+.nexa-btn-danger { @apply nexa-btn border border-red-500/30 text-red-500 hover:bg-red-500/10; }
+
+.nexa-chip {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-soft surface-2 px-2.5 py-1 text-[11px] font-medium;
+}
+
+.nav-item {
+  @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition;
+  color: rgb(var(--muted));
+}
+.nav-item:hover { background: rgb(var(--surface-2)); color: rgb(var(--text)); }
+.nav-item.active {
+  color: rgb(var(--text));
+  background: linear-gradient(90deg, rgba(51,130,255,.18), rgba(19,185,150,.10));
+  box-shadow: inset 0 0 0 1px rgba(89,164,255,.22);
+}
+.nav-item.active .nav-icon { color: #59a4ff; }
+
+.prose-nexa { color: rgb(var(--text)); @apply text-[14.5px] leading-7; }
+.prose-nexa p { @apply my-2; }
+.prose-nexa h1, .prose-nexa h2, .prose-nexa h3 { @apply font-display font-semibold mt-5 mb-2; }
+.prose-nexa ul, .prose-nexa ol { @apply my-2 pl-6; }
+.prose-nexa ul { list-style: disc; }
+.prose-nexa ol { list-style: decimal; }
+.prose-nexa code { @apply rounded bg-black/20 px-1.5 py-0.5 text-[12.5px] font-mono; }
+.dark .prose-nexa code { @apply bg-white/10; }
+.prose-nexa pre { @apply my-3 overflow-x-auto rounded-xl p-4 text-[12.5px]; background: #0b1020; color: #e6edf7; }
+.prose-nexa pre code { @apply bg-transparent p-0; }
+.prose-nexa a { @apply text-accent-500 underline underline-offset-2; }
+.prose-nexa blockquote { @apply border-l-2 border-accent-400/50 pl-3 italic; color: rgb(var(--muted)); }
+.prose-nexa table { @apply w-full text-sm my-3; }
+.prose-nexa th, .prose-nexa td { @apply border border-soft px-2 py-1 text-left; }
+
+.hljs { color: #e6edf7; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal { color: #9ecbff; }
+.hljs-string, .hljs-attr { color: #a5e6c8; }
+.hljs-number, .hljs-symbol { color: #ffb86b; }
+.hljs-comment { color: #7d8aa8; font-style: italic; }
+.hljs-function, .hljs-title { color: #c7a6ff; }
+
+@keyframes pulse-dot { 0%,100% { opacity: .4; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
+.typing-dot { animation: pulse-dot 1.1s infinite; }
+.typing-dot:nth-child(2) { animation-delay: .15s; }
+.typing-dot:nth-child(3) { animation-delay: .3s; }
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
