@@ -57,6 +57,7 @@ nexamind/
   - Hugging Face token for HF inference
   - Replicate API token for video generation
   - WABT, jq, JADX/JADX-MCP-JAR, TShark — used by optional REA-style sidecars; not required by NexaMind itself
+  - Firebase service-account credentials (optional) to use Firestore as the primary database
 
 ## Quick start (local development)
 
@@ -106,11 +107,25 @@ Copy `.env.example` to `.env` and set real values. Never commit `.env`.
 | `OPENROUTER_API_KEY` | LLM chat/completions (required for chat, agents, RAG answers, eval) | (none) |
 | `OPENROUTER_BASE_URL` | OpenRouter endpoint | `https://openrouter.ai/api/v1` |
 | `TAVILY_API_KEY` | Web search / Deep Research | (none) |
-| `HF_TOKEN` | Hugging Face inference/embeddings | (none) |
 | `REPLICATE_API_TOKEN` | Video generation | (none) |
 | `EMBEDDING_PROVIDER` | `local` (offline) or `openrouter` | `local` |
 | `GHIDRA_INSTALL_DIR` | Ghidra 12.x for native analysis sidecar | (none) |
 | `JADX_MCP_JAR`, `REA_WABT_BIN_DIRECTORY`, … | Optional REA providers | (none) |
+| `FIREBASE_PROJECT_ID` | Firebase project ID (optional primary DB) | (none) |
+| `FIREBASE_CREDENTIALS_PATH` | Path to service-account JSON (optional primary DB) | (none) |
+| `FIREBASE_BUCKET` | Firebase storage bucket (optional) | (none) |
+
+## Firebase (optional)
+
+NexaMind AI can use **Firestore** as its primary database when you provide Firebase credentials.
+
+1. Create a Firebase project at https://console.firebase.google.com
+2. Create a Cloud Storage bucket (optional)
+3. Generate a **Service Account Key** and download the JSON file
+4. Set `FIREBASE_PROJECT_ID` and `FIREBASE_CREDENTIALS_PATH` in your `.env`
+5. Restart the backend
+
+Firestore status will appear in `GET /health` and `GET /api/devops/integrations`.
 
 Secrets are **never** returned by `/api/devops/config` and are never written to logs or the frontend.
 

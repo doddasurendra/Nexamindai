@@ -60,10 +60,21 @@ class Settings(BaseSettings):
     url_fetch_timeout_seconds: float = 15.0
     allow_private_urls: bool = False
 
+    # ============================================================
+    # Firebase: primary database when configured; otherwise SQLite/PostgreSQL
+    # ============================================================
+    firebase_project_id: str = ""  # Firebase project ID, e.g. "nexamind-ai"
+    firebase_credentials_path: str = ""  # path to service-account JSON key
+    firebase_bucket: str = ""  # optional Cloud Storage bucket, defaults to default bucket
+
     # Embeddings: "local" (offline deterministic) or "openrouter"
     embedding_provider: str = "local"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 384
+
+    @property
+    def firebase_enabled(self) -> bool:
+        return bool(self.firebase_project_id and self.firebase_credentials_path)
 
     @property
     def fallback_model_list(self) -> list[str]:

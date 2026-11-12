@@ -42,6 +42,7 @@ async def health(user: User = Depends(get_current_user), db: AsyncSession = Depe
     checks["openrouter"] = "configured" if settings.openrouter_configured else "not configured"
     checks["search"] = "configured" if settings.search_configured else "not configured"
     checks["ollama"] = "configured" if settings.ollama_configured else "not configured"
+    checks["firebase"] = "configured" if settings.firebase_enabled else "not configured"
     return {"status": "ok" if checks["database"] == "ok" else "degraded", "time": time.time(), "checks": checks}
 
 
@@ -51,6 +52,7 @@ async def integrations(user: User = Depends(get_current_user)) -> list[dict]:
         {"provider": "OpenRouter", "configured": settings.openrouter_configured, "env": "OPENROUTER_API_KEY"},
         {"provider": "Tavily search", "configured": settings.search_configured, "env": "TAVILY_API_KEY"},
         {"provider": "Ollama", "configured": settings.ollama_configured, "env": "OLLAMA_BASE_URL"},
+        {"provider": "Firebase", "configured": settings.firebase_enabled, "env": "FIREBASE_PROJECT_ID"},
         {"provider": "Replicate video", "configured": bool(settings.replicate_api_token), "env": "REPLICATE_API_TOKEN"},
         {"provider": "OpenRouter embeddings", "configured": settings.embedding_provider == "openrouter" and settings.openrouter_configured, "env": "EMBEDDING_PROVIDER=openrouter"},
     ]
