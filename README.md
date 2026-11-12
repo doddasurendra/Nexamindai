@@ -104,6 +104,15 @@ Production: the backend serves `frontend/dist/` automatically at `/`.
 
 Register at `/login`. The **first registered account becomes the workspace administrator**.
 
+## Google Sign-In (optional)
+
+NexaMind supports **Continue with Google**. It requires a Google OAuth Web Client ID.
+See **[GOOGLE_SIGNIN_SETUP.md](GOOGLE_SIGNIN_SETUP.md)** for the 2-minute setup.
+
+- Frontend: `VITE_GOOGLE_CLIENT_ID` in `frontend/.env`
+- Backend: `GOOGLE_CLIENT_ID` in `backend/.env`
+- Authorized origins: `http://localhost:5173` and `http://127.0.0.1:8000`
+
 ## Configuration
 
 Copy `.env.example` to `.env` and set real values. Never commit `.env`.

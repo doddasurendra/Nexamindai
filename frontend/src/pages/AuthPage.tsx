@@ -36,6 +36,7 @@ export default function AuthPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  const [showGoogleSetup, setShowGoogleSetup] = useState(false);
 
   // Load Google Identity Services script when configured
   useEffect(() => {
@@ -106,7 +107,8 @@ export default function AuthPage() {
 
   function triggerGoogleSignIn() {
     if (!GOOGLE_CLIENT_ID) {
-      setError(new Error("Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID on the frontend and GOOGLE_CLIENT_ID on the backend."));
+      setShowGoogleSetup(true);
+      setError(null);
       return;
     }
     if (!window.google) {
@@ -334,11 +336,25 @@ export default function AuthPage() {
                 </svg>
                 {googleReady ? "Continue with Google" : GOOGLE_CLIENT_ID ? "Loading Google…" : "Continue with Google"}
               </button>
-              {!GOOGLE_CLIENT_ID && (
+              {!GOOGLE_CLIENT_ID && !showGoogleSetup && (
                 <p className="muted mt-2 text-center text-[10px]">
-                  Google sign-in needs <code className="rounded bg-black/20 px-1">VITE_GOOGLE_CLIENT_ID</code> (frontend) and{" "}
-                  <code className="rounded bg-black/20 px-1">GOOGLE_CLIENT_ID</code> (backend).
+                  Google sign-in needs setup — click the button to see how.
                 </p>
+              )}
+              {showGoogleSetup && (
+                <div className="mt-4 rounded-xl border border-amberish-500/30 bg-amberish-500/5 p-4 text-xs leading-6">
+                  <p className="font-semibold text-amberish-400">How to enable Google Sign-In (2 minutes)</p>
+                  <ol className="mt-2 list-decimal space-y-1.5 pl-5 muted">
+                    <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-accent-400 hover:underline">Google Cloud Console → Credentials</a></li>
+                    <li>Click <strong>Create Credentials</strong> → <strong>OAuth client ID</strong> → Application type: <strong>Web application</strong></li>
+                    <li>Add Authorized JavaScript origins: <code className="rounded bg-black/30 px-1">http://localhost:5173</code> and <code className="rounded bg-black/30 px-1">http://127.0.0.1:8000</code></li>
+                    <li>Copy the generated <strong>Client ID</strong> (looks like <code className="rounded bg-black/30 px-1">xxxx.apps.googleusercontent.com</code>)</li>
+                    <li>Paste it into <code className="rounded bg-black/30 px-1">frontend/.env</code> as <code className="rounded bg-black/30 px-1">VITE_GOOGLE_CLIENT_ID=...</code></li>
+                    <li>Paste the same ID into <code className="rounded bg-black/30 px-1">backend/.env</code> as <code className="rounded bg-black/30 px-1">GOOGLE_CLIENT_ID=...</code></li>
+                    <li>Restart the backend and rebuild the frontend (<code className="rounded bg-black/30 px-1">npm run build</code>)</li>
+                  </ol>
+                  <button type="button" onClick={() => setShowGoogleSetup(false)} className="mt-3 text-accent-400 hover:underline">Close</button>
+                </div>
               )}
             </>
           )}
