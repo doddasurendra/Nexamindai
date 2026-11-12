@@ -45,6 +45,24 @@ Status values: `done` / `partial` / `missing`. Tests: `passing` / `partial` / `n
 | 24 | Database schema/migrations | done | none | SQLAlchemy models; Alembic available |
 | 25 | Testing (frontend/backend/E2E) | partial | backend 31 passing, frontend 4/5 passing | E2E not automated yet |
 | 26 | Deliverables (README, env.example, tracker, commands) | done | none | This tracker + README + .env.example |
+| 27 | Global News module | done | none | BBC/Al Jazeera RSS + Tavily AI search; no village-level sources (not fabricated) |
+| 28 | AI Command Center | done | none | Task decomposition → agent assignment → execution → synthesis (OpenRouter) |
+| 29 | Global Knowledge Graph | done | none | Entity/relation CRUD + search; no inter-module entity auto-extraction yet |
+| 30 | Software Development Workspace | done | none | Public GitHub repo inspection (stars, languages, file tree, README) |
+| 31 | Video voiceover pipeline | done | none | Script (OpenRouter) → TTS (minimax/speech-02-hd) → scene clips (video-01) → moviepy stitch |
+| 32 | Google Sign-In | done | none | Needs GOOGLE_CLIENT_ID in backend .env and VITE_GOOGLE_CLIENT_ID in frontend .env |
+| 33 | Forgot Password flow | done | none | Token returned in response (no email service configured); 30-min expiry, single-use |
+| 34 | Ollama integration | done | none | llama3.2 live; replaces Hugging Face |
+| 35 | API Universe | done | none | 2,359 APIs imported, searchable, filterable |
+| 36 | Multi-agent orchestration (full queue/retries/timeouts) | partial | none | Command Center executes fixed sequential plan; no queue/timeouts/inter-agent messaging |
+| 37 | Agent Studio template gallery | partial | none | Core agents exist (quantum/healthcare/finance/cyber); no one-click template deploy |
+| 38 | AI Model Testing Lab (comparative benchmarking) | partial | backend tests | Metrics measured; no multi-model ranking UI |
+| 39 | Global Researcher (citation-grade agent) | partial | none | Research service exists; full multi-source verification workflow not wired |
+| 40 | Scheduled briefings | missing | none | No scheduler implemented |
+| 41 | Voice interaction (STT/TTS in chat) | missing | none | Not implemented |
+| 42 | Long-term memory with consent controls | missing | none | Not implemented |
+| 43 | Org-level isolation & emergency stop | missing | none | RBAC + rate limiting + SSRF only |
+| 44 | Firestore migration | blocked | none | firebase-admin install pending; no credentials |
 
 ## Test commands
 

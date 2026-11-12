@@ -7,17 +7,23 @@ One workspace for chat, research, agents, and automation — built on DeepSeek H
 **NexaMind AI** is a production-oriented AI platform: a FastAPI backend, a React/Vite/Tailwind frontend, and an SQLite/PostgreSQL data layer. It covers:
 
 - Chat with persistent, exportable conversations (streaming, models, citations)
+- Global News (BBC/Al Jazeera RSS + Tavily AI search & summaries)
+- AI Command Center (task decomposition → agent assignment → execution → synthesis)
+- Global Knowledge Graph (entity/relationship storage)
+- Software Development Workspace (public GitHub repo inspection)
 - Web search + Deep Research (Tavily)
 - URL analysis and document intelligence (PDF/DOCX/XLSX/CSV/TXT/images)
-- Image analysis/generation, video generation (Replicate)
+- Image analysis/generation, video generation with AI voiceover (Replicate)
 - Media gallery
 - Multi-agent orchestration (quantum, healthcare, finance, cybersecurity)
 - Chatbot Studio + RAG (local embeddings; pgvector-capable)
 - Automation workflows with approval gates
 - AI evaluation benchmarking
 - MCP connection management
-- Hugging Face inference
-- DevOps dashboard and audit logging
+- API Universe (2,359 public APIs)
+- Ollama local model inference
+- Google Sign-In + Forgot Password
+- AI DevOps dashboard and audit logging
 - Authentication (JWT), RBAC, rate limiting, SSRF-safe URL fetching
 
 ## Repository layout
