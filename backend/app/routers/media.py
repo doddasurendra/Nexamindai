@@ -15,7 +15,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import MediaItem, User
 from ..schemas import ImageGenerateRequest, ImageQuestion, MediaOut, VideoGenerateRequest
-from ..services import imagegen, openrouter, videogen
+from ..services import imagegen, openrouter, videogen, video_pipeline
 from ..services.media import delete_file, kind_for_extension, save_upload
 from ..services.usage import record_usage
 
@@ -176,6 +176,44 @@ async def generate_video(
         size=result["bytes"],
         source="generated",
         meta={"model": result["model"], "prompt": payload.prompt, "prediction_id": result.get("prediction_id")},
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return MediaOut.model_validate(item)
+
+
+@router.post("/videos/generate-with-voiceover", response_model=MediaOut, status_code=201)
+async def generate_video_with_voiceover(
+    payload: VideoGenerateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MediaOut:
+    """Full production pipeline: script -> TTS voiceover -> scene clips -> stitched MP4."""
+    result = await video_pipeline.generate_video_with_voiceover(
+        user.id,
+        payload.prompt,
+        duration_seconds=payload.duration_seconds,
+        language=payload.language,
+        voice_id=payload.voice_id,
+    )
+    item = MediaItem(
+        user_id=user.id,
+        kind="video",
+        title=payload.prompt[:120],
+        stored_path=result["path"],
+        mime_type="video/mp4",
+        size=result["bytes"],
+        source="generated",
+        meta={
+            "model": result["model"],
+            "prompt": payload.prompt,
+            "language": result["language"],
+            "duration_seconds": result["duration_seconds"],
+            "scenes": result["scenes"],
+            "script": result["script"][:2000],
+            "prediction_id": result.get("prediction_id"),
+        },
     )
     db.add(item)
     await db.commit()

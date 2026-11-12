@@ -259,6 +259,9 @@ class ImageGenerateRequest(BaseModel):
 class VideoGenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
     model: str = Field(default="", max_length=160)
+    duration_seconds: int = Field(default=30, ge=6, le=300)
+    language: str = Field(default="English", max_length=40)
+    voice_id: str | None = Field(default=None, max_length=120)
 
 
 class ImageQuestion(BaseModel):
