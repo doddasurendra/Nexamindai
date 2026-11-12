@@ -42,6 +42,24 @@ class TokenResponse(BaseModel):
     user: "UserOut"
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(min_length=1)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=320)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class UserOut(ORMModel):
     id: int
     email: str

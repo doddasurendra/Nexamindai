@@ -60,7 +60,9 @@ class Settings(BaseSettings):
     url_fetch_timeout_seconds: float = 15.0
     allow_private_urls: bool = False
 
-    # ============================================================
+    # Google Sign-In (OAuth 2.0 / OpenID Connect)
+    google_client_id: str = ""  # Google OAuth Web Client ID for GIS sign-in
+
     # Firebase: primary database when configured; otherwise SQLite/PostgreSQL
     # ============================================================
     firebase_project_id: str = ""  # Firebase project ID, e.g. "nexamind-ai"

@@ -7,6 +7,9 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ reset_token?: string; message: string }>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -65,6 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         setToken(response.access_token);
         setUser(response.user);
+      },
+      async loginWithGoogle(credential: string) {
+        const response = await api.post<{ access_token: string; user: User }>("/api/auth/google", { credential });
+        setToken(response.access_token);
+        setUser(response.user);
+      },
+      async forgotPassword(email: string) {
+        const response = await api.post<{ ok: boolean; message: string; reset_token?: string }>(
+          "/api/auth/forgot-password",
+          { email }
+        );
+        return { reset_token: response.reset_token, message: response.message };
+      },
+      async resetPassword(token: string, password: string) {
+        await api.post<{ ok: boolean; message: string }>("/api/auth/reset-password", { token, password });
       },
       logout() {
         setToken(null);
