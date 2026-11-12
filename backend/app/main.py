@@ -31,6 +31,10 @@ from .routers import (
     url,
     workflows,
     apis as api_router,
+    news,
+    command_center,
+    graph,
+    dev_workspace,
 )
 from .services.agents import seed_agents
 
@@ -96,7 +100,7 @@ async def rate_limited(_: Request, exc: RateLimited):
     )
 
 
-for module in (auth, chat, models, search, url, knowledge, media, agents, evals, workflows, chatbots, mcp, ollama, devops, api_router):
+for module in (auth, chat, models, search, url, knowledge, media, agents, evals, workflows, chatbots, mcp, ollama, devops, api_router, news, command_center, graph, dev_workspace):
     app.include_router(module.router)
 
 

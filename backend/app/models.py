@@ -448,3 +448,36 @@ class MCPServer(Base, TimestampMixin):
     last_tool_discovery: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+
+class KnowledgeEntity(Base, TimestampMixin):
+    """Entity in the global knowledge graph (research, tech, company, etc.)."""
+    __tablename__ = "knowledge_entities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(60), default="concept", nullable=False)  # concept, technology, person, company, paper, api, project
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    source_url: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    confidence: Mapped[str] = mapped_column(String(20), default="derived", nullable=False)  # verified, reported, inferred
+
+    outgoing: Mapped[list["KnowledgeRelation"]] = relationship(
+        back_populates="source", cascade="all, delete-orphan", foreign_keys="KnowledgeRelation.source_id"
+    )
+    incoming: Mapped[list["KnowledgeRelation"]] = relationship(
+        back_populates="target", cascade="all, delete-orphan", foreign_keys="KnowledgeRelation.target_id"
+    )
+
+
+class KnowledgeRelation(Base, TimestampMixin):
+    """Relationship between two knowledge entities."""
+    __tablename__ = "knowledge_relations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("knowledge_entities.id", ondelete="CASCADE"), index=True, nullable=False)
+    target_id: Mapped[int] = mapped_column(ForeignKey("knowledge_entities.id", ondelete="CASCADE"), index=True, nullable=False)
+    relation_type: Mapped[str] = mapped_column(String(80), default="related_to", nullable=False)
+    confidence: Mapped[str] = mapped_column(String(20), default="inferred", nullable=False)
+    evidence: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    source: Mapped[KnowledgeEntity] = relationship(back_populates="outgoing", foreign_keys=[source_id])
+    target: Mapped[KnowledgeEntity] = relationship(back_populates="incoming", foreign_keys=[target_id])
+

@@ -15,7 +15,11 @@ import ChatbotsPage from "./pages/Chatbots";
 import KnowledgePage from "./pages/Knowledge";
 import MCPPage from "./pages/MCP";
 import EvaluationPage from "./pages/Evaluation";
+import GlobalNewsPage from "./pages/GlobalNews";
+import CommandCenterPage from "./pages/CommandCenter";
 import ApiUniversePage from "./pages/ApiUniverse";
+import KnowledgeGraphPage from "./pages/KnowledgeGraph";
+import DevWorkspacePage from "./pages/DevWorkspace";
 import DevToolsPage from "./pages/DevTools";
 import SettingsPage from "./pages/Settings";
 
@@ -49,6 +53,8 @@ export default function App() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/research" element={<ResearchPage />} />
+        <Route path="/news" element={<GlobalNewsPage />} />
+        <Route path="/command-center" element={<CommandCenterPage />} />
         <Route path="/images" element={<ImageGenPage />} />
         <Route path="/video" element={<VideoGenPage />} />
         <Route path="/media" element={<MediaPage />} />
@@ -59,6 +65,8 @@ export default function App() {
         <Route path="/mcp" element={<MCPPage />} />
         <Route path="/evaluation" element={<EvaluationPage />} />
         <Route path="/apis" element={<ApiUniversePage />} />
+        <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
+        <Route path="/dev-workspace" element={<DevWorkspacePage />} />
         <Route path="/devtools" element={<DevToolsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
