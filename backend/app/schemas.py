@@ -259,9 +259,33 @@ class ImageGenerateRequest(BaseModel):
 class VideoGenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
     model: str = Field(default="", max_length=160)
-    duration_seconds: int = Field(default=30, ge=6, le=300)
+    duration_seconds: int = Field(default=30, ge=6, le=3600)
     language: str = Field(default="English", max_length=40)
     voice_id: str | None = Field(default=None, max_length=120)
+
+
+class CropParams(BaseModel):
+    x: int = 0
+    y: int = 0
+    width: int = 640
+    height: int = 360
+
+
+class VideoEditRequest(BaseModel):
+    source_media_id: int
+    trim_start: float | None = None
+    trim_end: float | None = None
+    resize_width: int | None = None
+    crop: CropParams | None = None
+    speed: float | None = Field(default=None, gt=0, le=10)
+    volume: float | None = Field(default=None, ge=0, le=10)
+    overlay_text: str | None = Field(default=None, max_length=500)
+    overlay_position: str = Field(default="bottom", max_length=20)
+    overlay_fontsize: int = Field(default=48, ge=8, le=300)
+
+
+class VideoConcatRequest(BaseModel):
+    media_ids: list[int] = Field(min_length=2, max_length=50)
 
 
 class ImageQuestion(BaseModel):

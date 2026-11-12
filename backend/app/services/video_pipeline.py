@@ -26,7 +26,7 @@ from .openrouter import chat as openrouter_chat
 
 settings = get_settings()
 
-MAX_DURATION_SECONDS = 300  # 5 minutes cap to bound cost/time
+MAX_DURATION_SECONDS = 3600  # 1 hour cap (user-requested); each 6s clip = ~600 predictions at the cap
 CLIP_SECONDS = 6
 TTS_MODEL = "minimax/speech-02-hd"
 VIDEO_MODEL = "minimax/video-01"
@@ -85,7 +85,7 @@ async def generate_script(topic: str, language: str, duration_seconds: int) -> s
         model=settings.default_model,
         max_tokens=4000,
     )
-    script = (response.get("content") or "").strip()
+    script = (response.get("text") or "").strip()
     if not script:
         raise ProviderError("OpenRouter", "Script generation returned empty content")
     return script
@@ -108,7 +108,7 @@ async def generate_scenes(topic: str, language: str, count: int) -> list[str]:
         model=settings.default_model,
         max_tokens=1500,
     )
-    raw = (response.get("content") or "").strip()
+    raw = (response.get("text") or "").strip()
     try:
         scenes = json.loads(raw)
         if isinstance(scenes, list):

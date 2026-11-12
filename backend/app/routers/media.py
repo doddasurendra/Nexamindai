@@ -14,8 +14,8 @@ from ..config import get_settings
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import MediaItem, User
-from ..schemas import ImageGenerateRequest, ImageQuestion, MediaOut, VideoGenerateRequest
-from ..services import imagegen, openrouter, videogen, video_pipeline
+from ..schemas import ImageGenerateRequest, ImageQuestion, MediaOut, VideoConcatRequest, VideoEditRequest, VideoGenerateRequest
+from ..services import imagegen, openrouter, videogen, video_pipeline, video_editor
 from ..services.media import delete_file, kind_for_extension, save_upload
 from ..services.usage import record_usage
 
@@ -214,6 +214,89 @@ async def generate_video_with_voiceover(
             "script": result["script"][:2000],
             "prediction_id": result.get("prediction_id"),
         },
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return MediaOut.model_validate(item)
+
+
+@router.post("/videos/edit", response_model=MediaOut, status_code=201)
+async def edit_video(
+    payload: VideoEditRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MediaOut:
+    """Edit a stored video: trim, crop, resize, speed, volume, text overlay."""
+    source = await _own_media(db, payload.source_media_id, user)
+    if source.kind != "video":
+        raise HTTPException(status_code=400, detail="Source must be a video")
+    result = video_editor.edit_video(
+        user.id,
+        source.stored_path,
+        trim_start=payload.trim_start,
+        trim_end=payload.trim_end,
+        resize_width=payload.resize_width,
+        crop=payload.crop.model_dump() if payload.crop else None,
+        speed=payload.speed,
+        volume=payload.volume,
+        overlay_text=payload.overlay_text,
+        overlay_position=payload.overlay_position,
+        overlay_fontsize=payload.overlay_fontsize,
+    )
+    item = MediaItem(
+        user_id=user.id,
+        kind="video",
+        title=f"{source.title} (edited)",
+        stored_path=result["path"],
+        mime_type="video/mp4",
+        size=result["bytes"],
+        source="edited",
+        meta={
+            "source_media_id": source.id,
+            "duration_seconds": result["duration"],
+            "width": result["width"],
+            "height": result["height"],
+            "edits": {
+                "trim_start": payload.trim_start,
+                "trim_end": payload.trim_end,
+                "resize_width": payload.resize_width,
+                "crop": payload.crop.model_dump() if payload.crop else None,
+                "speed": payload.speed,
+                "volume": payload.volume,
+                "overlay_text": payload.overlay_text,
+            },
+        },
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return MediaOut.model_validate(item)
+
+
+@router.post("/videos/concatenate", response_model=MediaOut, status_code=201)
+async def concatenate_videos(
+    payload: VideoConcatRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MediaOut:
+    """Join multiple stored videos into one."""
+    sources = []
+    for media_id in payload.media_ids:
+        source = await _own_media(db, media_id, user)
+        if source.kind != "video":
+            raise HTTPException(status_code=400, detail=f"Media {media_id} is not a video")
+        sources.append(source)
+    result = video_editor.concatenate_videos(user.id, [s.stored_path for s in sources])
+    item = MediaItem(
+        user_id=user.id,
+        kind="video",
+        title=f"Combined: {sources[0].title[:60]} +{len(sources) - 1} more"[:120],
+        stored_path=result["path"],
+        mime_type="video/mp4",
+        size=result["bytes"],
+        source="edited",
+        meta={"source_media_ids": [s.id for s in sources], "duration_seconds": result["duration"], "clips": len(sources)},
     )
     db.add(item)
     await db.commit()
