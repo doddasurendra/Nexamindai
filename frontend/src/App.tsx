@@ -15,6 +15,7 @@ import ChatbotsPage from "./pages/Chatbots";
 import KnowledgePage from "./pages/Knowledge";
 import MCPPage from "./pages/MCP";
 import EvaluationPage from "./pages/Evaluation";
+import ApiUniversePage from "./pages/ApiUniverse";
 import DevToolsPage from "./pages/DevTools";
 import SettingsPage from "./pages/Settings";
 
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/knowledge" element={<KnowledgePage />} />
         <Route path="/mcp" element={<MCPPage />} />
         <Route path="/evaluation" element={<EvaluationPage />} />
+        <Route path="/apis" element={<ApiUniversePage />} />
         <Route path="/devtools" element={<DevToolsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/chat" replace />} />

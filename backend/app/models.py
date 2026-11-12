@@ -286,3 +286,155 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(120), nullable=False)
     detail: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+# =============================================================================
+# API UNIVERSE — public-apis catalogue ingestion + connection tracking
+# =============================================================================
+
+
+class APICategory(Base, TimestampMixin):
+    """Canonical API category imported from public-apis README."""
+    __tablename__ = "api_categories"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), unique=True, index=True, nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    api_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    apis: Mapped[list["APIAPI"]] = relationship(back_populates="category", cascade="all, delete-orphan")
+
+
+class APIProvider(Base, TimestampMixin):
+    """Provider/developer behind an API (deduplicated)."""
+    __tablename__ = "api_providers"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), index=True, nullable=False)
+    website: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    documentation_url: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    email_contact: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    __table_args__ = (UniqueConstraint("name", name="uq_api_provider_name"),)
+
+    apis: Mapped[list["APIAPI"]] = relationship(back_populates="provider")
+
+
+class APIEndpoint(Base, TimestampMixin):
+    """One endpoint of a registered API."""
+    __tablename__ = "api_endpoints"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    api_id: Mapped[int] = mapped_column(
+        ForeignKey("api_apis.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    parameters: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    response_schema: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requires_auth: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    api: Mapped["APIAPI"] = relationship(back_populates="endpoints")
+
+
+class APIAPI(Base, TimestampMixin):
+    """Catalogued API from the public-apis repository (canonical record)."""
+    __tablename__ = "api_apis"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    category_name: Mapped[str] = mapped_column(String(160), index=True, nullable=False)
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("api_categories.id", ondelete="SET NULL"), index=True
+    )
+    provider_id: Mapped[int | None] = mapped_column(
+        ForeignKey("api_providers.id", ondelete="SET NULL"), index=True
+    )
+    base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    docs_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    auth_type: Mapped[str] = mapped_column(String(40), default="none", nullable=False)  # none, apiKey, OAuth
+    https: Mapped[str] = mapped_column(String(20), default="Unknown", nullable=False)
+    cors: Mapped[str] = mapped_column(String(20), default="Unknown", nullable=False)
+    pricing_class: Mapped[str] = mapped_column(String(40), default="unknown", nullable=False)  # free, freemium, paid, unknown
+    rate_limit: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), default="discovered", nullable=False)  # discovered, configured, connected, tested, operational, error
+    auth_required_configured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    credentials_encrypted: Mapped[str] = mapped_column(Text, default="", nullable=False)  # encrypted credentials
+    last_tested: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_test_result: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    health_check_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+
+    category: Mapped["APICategory"] = relationship(back_populates="apis")
+    provider: Mapped["APIProvider | None"] = relationship()
+    endpoints: Mapped[list["APIEndpoint"]] = relationship(back_populates="api", cascade="all, delete-orphan")
+    connections: Mapped[list["APIConnection"]] = relationship(back_populates="api", cascade="all, delete-orphan")
+    health_checks: Mapped[list["APIHealthCheck"]] = relationship(back_populates="api", cascade="all, delete-orphan")
+    usage_logs: Mapped[list["APIUsageLog"]] = relationship(back_populates="api", cascade="all, delete-orphan")
+
+
+class APIConnection(Base, TimestampMixin):
+    """A user's configured connection to a catalogued API."""
+    __tablename__ = "api_connections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    api_id: Mapped[int] = mapped_column(ForeignKey("api_apis.id", ondelete="CASCADE"), index=True, nullable=False)
+    connection_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    api_key_encrypted: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    oauth_token_encrypted: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="pending", nullable=False)  # pending, connected, error
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_checked: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    api: Mapped[APIAPI] = relationship(back_populates="connections")
+
+
+class APIHealthCheck(Base):
+    """Periodic health-check results per API."""
+    __tablename__ = "api_health_checks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    api_id: Mapped[int] = mapped_column(ForeignKey("api_apis.id", ondelete="CASCADE"), index=True, nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)  # ok, degraded, down
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    api: Mapped[APIAPI] = relationship(back_populates="health_checks")
+
+
+class APIUsageLog(Base):
+    """Every API call made by NexaMind, for audit and cost tracking."""
+    __tablename__ = "api_usage_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    api_id: Mapped[int] = mapped_column(ForeignKey("api_apis.id", ondelete="CASCADE"), index=True, nullable=False)
+    endpoint: Mapped[str] = mapped_column(String(500), nullable=False)
+    method: Mapped[str] = mapped_column(String(16), nullable=False)
+    status_code: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    cost: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    api: Mapped[APIAPI] = relationship(back_populates="usage_logs")
+
+
+class MCPServer(Base, TimestampMixin):
+    """Discovered MCP server from public-apis repository."""
+    __tablename__ = "mcp_servers"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    auth_type: Mapped[str] = mapped_column(String(40), default="none", nullable=False)
+    transport: Mapped[str] = mapped_column(String(80), default="stdio", nullable=False)
+    install_links: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    category: Mapped[str] = mapped_column(String(160), default="mcp", nullable=False)
+    tools: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="discovered", nullable=False)
+    last_tool_discovery: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+

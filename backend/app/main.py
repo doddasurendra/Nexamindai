@@ -30,6 +30,7 @@ from .routers import (
     search,
     url,
     workflows,
+    apis as api_router,
 )
 from .services.agents import seed_agents
 
@@ -95,7 +96,7 @@ async def rate_limited(_: Request, exc: RateLimited):
     )
 
 
-for module in (auth, chat, models, search, url, knowledge, media, agents, evals, workflows, chatbots, mcp, ollama, devops):
+for module in (auth, chat, models, search, url, knowledge, media, agents, evals, workflows, chatbots, mcp, ollama, devops, api_router):
     app.include_router(module.router)
 
 
@@ -127,4 +128,19 @@ async def meta() -> dict:
 
 frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+    from fastapi.responses import FileResponse
+
+    from starlette.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+    @app.get("/")
+    async def serve_frontend() -> FileResponse:
+        return FileResponse(str(frontend_dist / "index.html"))
+
+    @app.get("/{rest_of_path:path}")
+    async def spa_fallback(rest_of_path: str) -> FileResponse:
+        candidate = frontend_dist / rest_of_path
+        if candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(frontend_dist / "index.html"))
