@@ -38,17 +38,20 @@ export default function VideoPage() {
       <PageHeader
         icon={<Video className="h-5 w-5" />}
         title="Video Generation"
-        subtitle="Text-to-video through Replicate when REPLICATE_API_TOKEN is configured. Without credentials this page reports the integration as not configured — it never fabricates a video."
+        subtitle="Text-to-video through Replicate. Best results with English prompts — non-English prompts are auto-translated. Without REPLICATE_API_TOKEN the integration reports as not configured."
       />
       <Card className="mb-6">
-        <Input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the video…" />
+        <Input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Describe the video… (e.g. 'a person explaining quantum computing with glowing qubits')" />
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Input value={model} onChange={(event) => setModel(event.target.value)} placeholder="model (optional, default minimax/video-01)" className="max-w-xs" />
           <Button onClick={() => void generate()} disabled={busy || !prompt.trim()}>
             {busy ? <Spinner label="Rendering…" /> : "Generate video"}
           </Button>
-          <span className="muted text-xs">Requires REPLICATE_API_TOKEN.</span>
+          <span className="muted text-xs">Requires REPLICATE_API_TOKEN. Video rendering can take 2–5 minutes.</span>
         </div>
+        <p className="muted mt-2 text-[11px]">
+          Tip: video models are optimized for English. If you write in Telugu/Hindi/etc., NexaMind auto-translates the prompt for generation.
+        </p>
         {Boolean(error) && <div className="mt-4"><ErrorNotice error={error} /></div>}
       </Card>
 
