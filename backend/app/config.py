@@ -62,6 +62,7 @@ class Settings(BaseSettings):
 
     # Google Sign-In (OAuth 2.0 / OpenID Connect)
     google_client_id: str = ""  # Google OAuth Web Client ID for GIS sign-in
+    google_client_secret: str = ""  # Server-side only; used for authorization-code flows
 
     # Firebase: primary database when configured; otherwise SQLite/PostgreSQL
     # ============================================================
