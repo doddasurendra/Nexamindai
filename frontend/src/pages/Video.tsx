@@ -189,6 +189,27 @@ export default function VideoPage() {
         {Boolean(error) && <div className="mt-4"><ErrorNotice error={error} /></div>}
       </Card>
 
+      {providers.length > 0 && (
+        <Card className="mb-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wider muted">Provider failover chain</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {providers.map((p) => (
+              <span key={p.provider} className={cn(
+                "rounded-lg border px-2 py-1 text-[11px]",
+                p.configured ? "border-mint-500/40 text-mint-400" : "border-soft muted",
+                (p as { in_cooldown?: boolean }).in_cooldown && "border-amberish-500/50 text-amberish-400"
+              )}>
+                {p.provider}
+                {!p.configured && " · not configured"}
+                {p.configured && !(p as { in_cooldown?: boolean }).in_cooldown && " · ready"}
+                {(p as { in_cooldown?: boolean }).in_cooldown && " · cooling down (quota)"}
+              </span>
+            ))}
+          </div>
+          <p className="muted mt-2 text-[11px]">Auto mode tries providers in order; a provider that hits a credit/quota limit is skipped for 10 minutes and the next one is used automatically.</p>
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <Card key={item.id} className={cn("flex flex-col p-3", selected.includes(item.id) && "ring-2 ring-accent-500")}>
@@ -205,10 +226,16 @@ export default function VideoPage() {
             </div>
             <p className="mt-2 line-clamp-2 text-xs">{item.title}</p>
             <div className="mt-1 flex flex-wrap gap-1">
+              {item.meta?.succeeded_with != null && <Badge tone="success">via {String(item.meta.succeeded_with)}</Badge>}
               {item.meta?.language != null && <Badge>{String(item.meta.language)}</Badge>}
               {item.meta?.duration_seconds != null && <Badge>{String(Math.round(Number(item.meta.duration_seconds) * 10) / 10)}s</Badge>}
               {item.meta?.scenes != null && <Badge>{String(item.meta.scenes)} scenes</Badge>}
               {item.meta?.source_media_id != null && <Badge>edited</Badge>}
+              {Array.isArray(item.meta?.attempts) && (item.meta.attempts as { provider: string; status: string }[]).filter((a) => a.status === "failed").length > 0 && (
+                <span className="text-[10px] muted" title={(item.meta.attempts as { provider: string; status: string; error?: string }[]).map((a) => `${a.provider}: ${a.status}${a.error ? " — " + a.error.slice(0, 80) : ""}`).join("\n")}>
+                  ⚠ {(item.meta.attempts as { status: string }[]).filter((a) => a.status === "failed").length} fallback(s)
+                </span>
+              )}
             </div>
             <div className="mt-2 flex items-center justify-between">
               <p className="muted text-[10px]">{new Date(item.created_at).toLocaleString()}</p>

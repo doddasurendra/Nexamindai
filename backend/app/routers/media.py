@@ -184,6 +184,8 @@ async def generate_video(
             "prompt": payload.prompt,
             "duration_seconds": result.get("duration_seconds"),
             "prediction_id": result.get("prediction_id") or result.get("creation_id") or result.get("project") or result.get("render_id"),
+            "succeeded_with": result.get("succeeded_with") or result.get("provider", provider),
+            "attempts": result.get("attempts", []),
         },
     )
     db.add(item)

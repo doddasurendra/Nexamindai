@@ -1,11 +1,13 @@
-"""Video API providers from the public-apis catalogue (#video).
+"""Video API providers from the public-apis catalogue (#video) with automatic failover.
 
-Connectors:
-- KPainter   (https://api.kpainter.ai)      — prompt-to-video generation, Bearer key, 120–1500s durations
-- JSON2Video (https://api.json2video.com)   — programmatic scenes -> MP4, x-api-key header
-- Shotstack  (https://shotstack.io)         — cloud video editing/render, x-api-key header
+Chain order: replicate → kpainter → json2video → shotstack
+- When a provider fails with a quota/credit error (HTTP 402/429, invalid key),
+  it enters a cooldown so subsequent requests skip it and try the next provider.
+- Every request returns an attempt log: which providers were tried, why each failed,
+  and which one finally succeeded.
 
-Each provider is disabled until its key is set in the environment. `auto` tries them in order.
+Also see the OpenRouter model chain (openrouter.py): default model → fallback models
+→ local Ollama, which fails over the same way when tokens/credits run out.
 """
 from __future__ import annotations
 
@@ -22,15 +24,52 @@ from .media import save_bytes
 settings = get_settings()
 
 PROVIDER_ORDER = ["replicate", "kpainter", "json2video", "shotstack"]
+COOLDOWN_SECONDS = 10 * 60  # skip a provider for 10 minutes after a quota/credit failure
+
+# provider -> cooldown_until (epoch seconds); shared process-wide
+_cooldowns: dict[str, float] = {}
+
+
+def _mark_cooldown(provider: str, seconds: int = COOLDOWN_SECONDS) -> None:
+    _cooldowns[provider] = time.time() + seconds
+
+
+def _in_cooldown(provider: str) -> bool:
+    until = _cooldowns.get(provider)
+    return bool(until and time.time() < until)
+
+
+def _classify_error(status: int | None, text: str) -> tuple[str, bool]:
+    """Classify a provider error. Returns (kind, is_quota)."""
+    lowered = (text or "").lower()
+    if status in (402, 429) or "credit" in lowered or "rate limit" in lowered or "quota" in lowered or "billing" in lowered:
+        return "quota", True
+    if status in (401, 403):
+        return "auth", True  # invalid key also goes on cooldown
+    return "transient", False
 
 
 def provider_status() -> list[dict[str, Any]]:
-    return [
-        {"provider": "replicate", "configured": bool(settings.replicate_api_token), "env": "REPLICATE_API_TOKEN", "role": "text-to-video (billing required)"},
-        {"provider": "kpainter", "configured": bool(settings.kpainter_api_key), "env": "KPAINTER_API_KEY", "role": "prompt-to-video generation (public-apis)"},
-        {"provider": "json2video", "configured": bool(settings.json2video_api_key), "env": "JSON2VIDEO_API_KEY", "role": "programmatic scenes -> MP4 (public-apis)"},
-        {"provider": "shotstack", "configured": bool(settings.shotstack_api_key), "env": "SHOTSTACK_API_KEY", "role": "cloud editing/render, 10 free credits/30 days (public-apis)"},
-    ]
+    out = []
+    for name in PROVIDER_ORDER:
+        item = {
+            "provider": name,
+            "configured": False,
+            "env": "",
+            "role": "",
+            "cooldown_until": _cooldowns.get(name),
+            "in_cooldown": _in_cooldown(name),
+        }
+        if name == "replicate":
+            item.update(configured=bool(settings.replicate_api_token), env="REPLICATE_API_TOKEN", role="text-to-video (billing required)")
+        elif name == "kpainter":
+            item.update(configured=bool(settings.kpainter_api_key), env="KPAINTER_API_KEY", role="prompt-to-video generation (public-apis)")
+        elif name == "json2video":
+            item.update(configured=bool(settings.json2video_api_key), env="JSON2VIDEO_API_KEY", role="programmatic scenes -> MP4 (public-apis)")
+        elif name == "shotstack":
+            item.update(configured=bool(settings.shotstack_api_key), env="SHOTSTACK_API_KEY", role="cloud editing/render, 10 free credits/30 days (public-apis)")
+        out.append(item)
+    return out
 
 
 def configured_providers() -> list[str]:
@@ -49,7 +88,7 @@ async def _download(url: str, timeout: float = 300) -> bytes:
 
 async def _kpainter_poll(creation_id: str, headers: dict[str, str]) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=30) as client:
-        for _ in range(120):  # ~10 minutes
+        for _ in range(120):
             resp = await client.get(f"https://api.kpainter.ai/openapi/v1/creations/{creation_id}", headers=headers)
             if resp.status_code >= 400:
                 raise ProviderError("KPainter", f"Poll failed: HTTP {resp.status_code} {resp.text[:200]}")
@@ -66,7 +105,6 @@ async def _kpainter_poll(creation_id: str, headers: dict[str, str]) -> dict[str,
 async def generate_kpainter(user_id: int, prompt: str, duration_seconds: int = 120) -> dict[str, Any]:
     if not settings.kpainter_api_key:
         raise IntegrationNotConfigured("KPainter", "KPAINTER_API_KEY")
-    # KPainter duration presets: 120, 240, 360, 510, 900, 1500
     presets = [120, 240, 360, 510, 900, 1500]
     chosen = min(presets, key=lambda value: abs(value - duration_seconds))
     headers = {"Authorization": f"Bearer {settings.kpainter_api_key}", "Content-Type": "application/json"}
@@ -78,7 +116,7 @@ async def generate_kpainter(user_id: int, prompt: str, duration_seconds: int = 1
             json={"type": "video", "prompt": prompt, "video": {"duration_seconds": chosen, "language": "auto"}},
         )
     if resp.status_code not in (200, 201, 202):
-        raise ProviderError("KPainter", f"Create failed: HTTP {resp.status_code} {resp.text[:300]}")
+        raise ProviderError("KPainter", f"HTTP {resp.status_code}: {resp.text[:300]}")
     creation = resp.json()
     creation_id = creation.get("id")
     if not creation_id:
@@ -131,13 +169,13 @@ async def generate_json2video(user_id: int, prompt: str, duration_seconds: int =
             },
         )
     if resp.status_code >= 400:
-        raise ProviderError("JSON2Video", f"Create failed: HTTP {resp.status_code} {resp.text[:300]}")
+        raise ProviderError("JSON2Video", f"HTTP {resp.status_code}: {resp.text[:300]}")
     project = resp.json().get("project")
     if not project:
         raise ProviderError("JSON2Video", "Create returned no project id")
 
     async with httpx.AsyncClient(timeout=30) as client:
-        for _ in range(120):  # ~10 minutes
+        for _ in range(120):
             poll = await client.get("https://api.json2video.com/v2/movies", params={"project": project}, headers=headers)
             if poll.status_code >= 400:
                 raise ProviderError("JSON2Video", f"Poll failed: HTTP {poll.status_code}")
@@ -172,7 +210,6 @@ PRODUCTION_URL = "https://api.shotstack.io"
 async def generate_shotstack(user_id: int, prompt: str, duration_seconds: int = 30) -> dict[str, Any]:
     if not settings.shotstack_api_key:
         raise IntegrationNotConfigured("Shotstack", "SHOTSTACK_API_KEY")
-    # Sandbox first (free, watermarked); production if SHOTSTACK_ENV=production
     import os
 
     base = PRODUCTION_URL if os.environ.get("SHOTSTACK_ENV", "").lower() == "production" else SANDBOX_URL
@@ -197,13 +234,13 @@ async def generate_shotstack(user_id: int, prompt: str, duration_seconds: int = 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(f"{base}/edit/v1/render", headers=headers, json={"timeline": timeline, "output": {"format": "mp4", "resolution": "hd"}})
     if resp.status_code not in (200, 201, 202):
-        raise ProviderError("Shotstack", f"Render failed: HTTP {resp.status_code} {resp.text[:300]}")
+        raise ProviderError("Shotstack", f"HTTP {resp.status_code}: {resp.text[:300]}")
     render_id = (resp.json().get("response") or {}).get("id")
     if not render_id:
         raise ProviderError("Shotstack", "Render returned no id")
 
     async with httpx.AsyncClient(timeout=30) as client:
-        for _ in range(120):  # ~10 minutes
+        for _ in range(120):
             poll = await client.get(f"{base}/edit/v1/render/{render_id}", headers=headers)
             if poll.status_code >= 400:
                 raise ProviderError("Shotstack", f"Poll failed: HTTP {poll.status_code}")
@@ -230,35 +267,72 @@ async def generate_shotstack(user_id: int, prompt: str, duration_seconds: int = 
     raise ProviderError("Shotstack", "Render timed out while waiting for output")
 
 
-# ---------- dispatcher ----------
+# ---------- Replicate ----------
+
+async def generate_replicate(user_id: int, prompt: str, duration_seconds: int = 30) -> dict[str, Any]:
+    from . import videogen
+
+    return await videogen.generate_video(user_id, prompt, None)
+
+
+_GENERATORS: dict[str, Any] = {
+    "replicate": generate_replicate,
+    "kpainter": generate_kpainter,
+    "json2video": generate_json2video,
+    "shotstack": generate_shotstack,
+}
+
+
+# ---------- dispatcher with failover chain ----------
+
+async def _run_one(provider: str, user_id: int, prompt: str, duration_seconds: int, language: str) -> dict[str, Any]:
+    generator = _GENERATORS[provider]
+    if provider == "json2video":
+        return await generator(user_id, prompt, duration_seconds, language)
+    if provider == "shotstack":
+        return await generator(user_id, prompt, duration_seconds)
+    return await generator(user_id, prompt, duration_seconds)
+
 
 async def generate_with_provider(user_id: int, prompt: str, provider: str, duration_seconds: int, language: str = "English") -> dict[str, Any]:
     provider = (provider or "auto").lower().strip()
-    if provider == "replicate":
-        from . import videogen
 
-        return await videogen.generate_video(user_id, prompt, None)
-    if provider == "kpainter":
-        return await generate_kpainter(user_id, prompt, duration_seconds)
-    if provider == "json2video":
-        return await generate_json2video(user_id, prompt, duration_seconds, language)
-    if provider == "shotstack":
-        return await generate_shotstack(user_id, prompt, duration_seconds)
-    if provider == "auto":
-        last_error: Exception | None = None
-        for candidate in PROVIDER_ORDER:
-            try:
-                return await generate_with_provider(user_id, prompt, candidate, duration_seconds, language)
-            except IntegrationNotConfigured:
-                continue
-            except ProviderError as exc:
-                last_error = exc
-                continue
-        if last_error is not None:
-            raise ProviderError("VideoProviders", f"All configured providers failed. Last: {last_error}")
-        raise IntegrationNotConfigured(
-            "Video providers",
-            "REPLICATE_API_TOKEN / KPAINTER_API_KEY / JSON2VIDEO_API_KEY / SHOTSTACK_API_KEY",
-            "No video provider is configured. Set at least one key (see .env).",
-        )
-    raise ProviderError("VideoProviders", f"Unknown provider: {provider}. Valid: auto, replicate, kpainter, json2video, shotstack")
+    # Explicit provider: run it (no failover, report its own errors).
+    if provider != "auto":
+        if provider not in _GENERATORS:
+            raise ProviderError("VideoProviders", f"Unknown provider: {provider}. Valid: auto, replicate, kpainter, json2video, shotstack")
+        return await _run_one(provider, user_id, prompt, duration_seconds, language)
+
+    # Auto: walk the chain, skipping providers in cooldown, logging every attempt.
+    attempts: list[dict[str, Any]] = []
+    for candidate in PROVIDER_ORDER:
+        if _in_cooldown(candidate):
+            attempts.append({"provider": candidate, "status": "skipped", "error": "cooldown after quota/credit failure"})
+            continue
+        try:
+            result = await _run_one(candidate, user_id, prompt, duration_seconds, language)
+            result["attempts"] = attempts
+            result["succeeded_with"] = candidate
+            return result
+        except IntegrationNotConfigured as exc:
+            attempts.append({"provider": candidate, "status": "not_configured", "error": str(exc)})
+            continue
+        except ProviderError as exc:
+            # Inspect the underlying HTTP error to decide cooldown.
+            text = str(exc)
+            status = None
+            lowered = text.lower()
+            for code in ("401", "402", "403", "429"):
+                if f"HTTP {code}" in text or f"status_code={code}" in text or code in lowered:
+                    status = int(code)
+                    break
+            kind, is_quota = _classify_error(status, text)
+            attempts.append({"provider": candidate, "status": "failed", "error": text[:300], "kind": kind})
+            if is_quota:
+                _mark_cooldown(candidate)
+            continue
+
+    raise ProviderError(
+        "VideoProviders",
+        "All providers failed. " + " | ".join(f"{a['provider']}: {a['status']} ({a['error']})" for a in attempts),
+    )
