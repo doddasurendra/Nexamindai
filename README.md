@@ -160,24 +160,70 @@ cd frontend
 npx vitest run
 ```
 
-## Deployment
+## Deployment (Firebase Hosting + Cloud Run)
 
-The backend serves the built frontend from `frontend/dist/`. For a containerized deploy:
+The frontend is deployed to Firebase Hosting; the FastAPI backend runs on Cloud Run.
+Firebase Hosting rewrites `/api/**` to the Cloud Run service so the SPA and API share one origin.
 
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY backend ./backend
-COPY frontend/dist ./frontend/dist
-RUN pip install -r backend/requirements.txt
-ENV DATABASE_URL=postgresql+asyncpg://user:pass@db:5432/nexamind
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+### Prerequisites
+
+- Firebase project `nexamindai-427c1` (owner: sdodda073@gmail.com)
+- **Blaze plan** enabled (Cloud Run requires pay-as-you-go)
+- `gcloud` + `firebase` CLI (or use **Cloud Shell**, which needs no local install)
+
+### One-command deploy (Google Cloud Shell)
+
+Cloud Shell comes pre-authenticated as your Google account — no local install or keys needed.
+
+```bash
+# 1. Open Cloud Shell: https://console.cloud.google.com/cloudshell
+git clone https://github.com/doddasurendra/Nexamindai.git
+cd Nexamindai/backend
+
+# 2. Create env.yaml with your secrets (copy from local .env)
+cat > env.yaml << 'EOF'
+OPENROUTER_API_KEY: sk-or-...
+TAVILY_API_KEY: tvly-...
+REPLICATE_API_TOKEN: r8_...
+JSON2VIDEO_API_KEY: <your-json2video-key>
+GOOGLE_CLIENT_ID: 598...
+GOOGLE_CLIENT_SECRET: GOCSPX-...
+DEFAULT_MODEL: baidu/ernie-light-dt-1.0-intl
+FALLBACK_MODELS: nex-agi/nex-n2.6,google/gemini-4-carbon
+OLLAMA_BASE_URL: "http://localhost:11434"
+EOF
+
+# 3. Deploy to Cloud Run (builds from backend/Dockerfile)
+gcloud run deploy nexamind-api --source . --region asia-south1 \
+  --allow-unauthenticated --memory 2Gi --timeout 600 --port 8080 \
+  --env-vars-file env.yaml
+
+# 4. Deploy the frontend + hosting rewrite
+cd ..
+firebase deploy --only hosting --non-interactive
 ```
 
-- Set `DATABASE_URL` to PostgreSQL for production.
-- Set `SECRET_KEY` to a strong random value.
-- Behind TLS, restrict `CORS_ORIGINS` to your domain.
-- Run migrations if you introduce schema changes: `alembic revision --autogenerate` + `alembic upgrade head`.
+After both steps:
+
+- Frontend: **https://nexamindai-427c1.web.app** (and the `/api/*` routes proxy to Cloud Run)
+- API: Cloud Run URL shown by the deploy command
+
+### Caveats (honest)
+
+- **Database**: SQLite lives in `/tmp` on each Cloud Run instance. Data resets on redeploy/scale-out.
+  For persistent data, provision **Cloud SQL for PostgreSQL** and point `DATABASE_URL` at it.
+- **Media files**: same — use a mounted Cloud Storage bucket or GCS for the media directory.
+- **Google OAuth**: add `https://nexamindai-427c1.web.app` as an Authorized JavaScript origin in the OAuth client.
+- `.env` must **never** be committed — `env.yaml` contains secrets too. Both are gitignored / dockerignored.
+
+### First-time local container test
+
+```powershell
+cd backend
+docker build -t nexamind-api .
+docker run --rm -p 8080:8080 --env-file .env nexamind-api
+# → http://localhost:8080/health
+```
 
 ## What’s covered vs. what still needs credentials
 
