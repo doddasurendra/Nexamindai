@@ -19,6 +19,7 @@ import GlobalNewsPage from "./pages/GlobalNews";
 import CommandCenterPage from "./pages/CommandCenter";
 import ApiUniversePage from "./pages/ApiUniverse";
 import KnowledgeGraphPage from "./pages/KnowledgeGraph";
+import PluginsPage from "./pages/Plugins";
 import DevWorkspacePage from "./pages/DevWorkspace";
 import DevToolsPage from "./pages/DevTools";
 import SettingsPage from "./pages/Settings";
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/apis" element={<ApiUniversePage />} />
         <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
         <Route path="/dev-workspace" element={<DevWorkspacePage />} />
+        <Route path="/plugins" element={<PluginsPage />} />
         <Route path="/devtools" element={<DevToolsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/chat" replace />} />

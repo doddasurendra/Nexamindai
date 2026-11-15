@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     json2video_api_key: str = ""  # programmatic movie creation (https://api.json2video.com)
     shotstack_api_key: str = ""  # cloud video editing/render (https://shotstack.io)
 
+    # FreeLLMAPI (https://github.com/tashfeenahmed/freellmapi) — self-hosted OpenAI-compatible
+    # proxy that pools free provider tiers and fails over between models.
+    freellmapi_base_url: str = ""  # e.g. http://localhost:3001/v1
+    freellmapi_api_key: str = ""  # optional key for your FreeLLMAPI instance
+    freellmapi_model: str = "auto"  # "auto" lets FreeLLMAPI pick/rotate models
+
     # Storage
     storage_dir: Path = Path("./data/storage")
     max_upload_mb: int = 25

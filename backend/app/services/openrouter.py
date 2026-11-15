@@ -162,6 +162,35 @@ def _models_to_try(primary: str) -> list[str]:
     return chain
 
 
+async def _freellmapi_chat(messages: list[dict[str, Any]], temperature: float, max_tokens: int) -> dict[str, Any] | None:
+    """FreeLLMAPI fallback: OpenAI-compatible proxy pooling free tiers (https://github.com/tashfeenahmed/freellmapi)."""
+    base = (settings.freellmapi_base_url or "").rstrip("/")
+    if not base:
+        return None
+    headers = {"Content-Type": "application/json"}
+    if settings.freellmapi_api_key:
+        headers["Authorization"] = f"Bearer {settings.freellmapi_api_key}"
+    model = settings.freellmapi_model or "auto"
+    body = {"model": model, "messages": trim_messages(messages), "temperature": temperature, "max_tokens": max_tokens}
+    async with httpx.AsyncClient(timeout=120) as client:
+        response = await client.post(f"{base}/chat/completions", headers=headers, json=body)
+    if response.status_code >= 400:
+        raise ProviderError("FreeLLMAPI", f"HTTP {response.status_code}: {response.text[:300]}")
+    data = response.json()
+    choice = (data.get("choices") or [{}])[0]
+    content = (choice.get("message") or {}).get("content") or ""
+    usage = data.get("usage") or {}
+    return {
+        "text": content,
+        "model": f"freellmapi/{data.get('model', model)}",
+        "tokens_in": int(usage.get("prompt_tokens") or 0),
+        "tokens_out": int(usage.get("completion_tokens") or 0),
+        "cost": 0.0,
+        "latency_ms": 0,
+        "raw": {"provider": "freellmapi", "fallback": True},
+    }
+
+
 async def chat(
     messages: list[dict[str, Any]],
     model: str | None = None,
@@ -217,7 +246,17 @@ async def chat(
             last_error = exc
             continue
 
-    # All remote models failed — fall back to local Ollama (unlimited, no rate limits)
+    # All remote models failed — try FreeLLMAPI (free tier pooling) if configured
+    freellmapi_error: Exception | None = None
+    if settings.freellmapi_base_url:
+        try:
+            result = await _freellmapi_chat(messages, temperature, max_tokens)
+            if result is not None:
+                return result
+        except Exception as exc:  # noqa: BLE001
+            freellmapi_error = exc
+
+    # Fall back to local Ollama (unlimited, no rate limits)
     try:
         trimmed = trim_messages(messages)
         result = await _ollama.chat(trimmed, model=settings.ollama_model, temperature=temperature, max_tokens=max_tokens)
@@ -233,7 +272,7 @@ async def chat(
     except Exception as ollama_exc:  # noqa: BLE001
         raise ProviderError(
             "OpenRouter",
-            f"All model attempts failed (remote: {last_error}; local Ollama fallback: {ollama_exc})",
+            f"All model attempts failed (remote: {last_error}; FreeLLMAPI: {freellmapi_error}; local Ollama fallback: {ollama_exc})",
         )
 
 
@@ -320,7 +359,7 @@ async def chat_stream(
             "latency_ms": result.get("latency_ms", 0),
         }
     except Exception as ollama_exc:  # noqa: BLE001
-        yield {"type": "error", "error": f"All model attempts failed (remote: {last_error}; local Ollama fallback: {ollama_exc})"}
+        yield {"type": "error", "error": f"All model attempts failed (remote: {last_error}; FreeLLMAPI: {settings.freellmapi_base_url or 'not configured'}; local Ollama fallback: {ollama_exc})"}
 
 
 async def embeddings(texts: list[str], model: str | None = None) -> list[list[float]]:

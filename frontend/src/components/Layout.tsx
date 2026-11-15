@@ -17,6 +17,7 @@ import {
   Moon,
   Network,
   Newspaper,
+  Plug,
   Search,
   Settings as SettingsIcon,
   Sparkles,
@@ -51,6 +52,7 @@ const NAV = [
   { to: "/evaluation", label: "Model Testing Lab", icon: Gauge },
   { to: "/knowledge-graph", label: "Knowledge Graph", icon: Network },
   { to: "/dev-workspace", label: "Software Dev", icon: Code2 },
+  { to: "/plugins", label: "Plugin Center", icon: Plug },
   { to: "/devtools", label: "Developer Tools", icon: Activity },
   { to: "/settings", label: "Settings", icon: SettingsIcon }
 ];
